@@ -36,5 +36,5 @@ My passion lies at the intersection of traditional tactical analysis and the adv
 
 ### 📫 Get in Touch:
 
--   **Email:** your.email@example.com
+-   **Email:** j.carlosluengoc@gmail.com
 -   **LinkedIn:** https://www.linkedin.com/in/joseluengo/ Hi there 👋
