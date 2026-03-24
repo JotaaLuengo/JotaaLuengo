@@ -1,72 +1,73 @@
-# ScoutLab
+# React + TypeScript + Vite
 
-A Python toolkit for football player scouting using Machine Learning — built for data-driven analysts who want to identify similar players, cluster talent profiles, and visualize performance metrics.
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-## Features
+Currently, two official plugins are available:
 
-- **Player Similarity** — find the most similar players based on performance metrics using cosine similarity and KNN
-- **Player Clustering** — group players into talent archetypes using K-Means and DBSCAN
-- **Radar Charts** — generate comparison radar charts for any set of metrics
-- **Scatter Plots** — plot players on customizable 2D metric scatter plots
-- **Scouting Pipeline** — end-to-end pipeline from raw data to scouting report
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
 
-## Installation
+## React Compiler
 
-```bash
-pip install -r requirements.txt
-pip install -e .
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+
+## Expanding the ESLint configuration
+
+If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+
+```js
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
+
+      // Remove tseslint.configs.recommended and replace with this
+      tseslint.configs.recommendedTypeChecked,
+      // Alternatively, use this for stricter rules
+      tseslint.configs.strictTypeChecked,
+      // Optionally, add this for stylistic rules
+      tseslint.configs.stylisticTypeChecked,
+
+      // Other configs...
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
 ```
 
-## Quick Start
+You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
 
-```python
-from scoutlab.pipeline.scouting import ScoutingPipeline
+```js
+// eslint.config.js
+import reactX from 'eslint-plugin-react-x'
+import reactDom from 'eslint-plugin-react-dom'
 
-pipeline = ScoutingPipeline(data_path="data/players.csv")
-pipeline.fit()
-
-# Find the 5 most similar players to a target
-similar = pipeline.find_similar("Pedri", top_n=5)
-print(similar)
-
-# Get player cluster
-cluster = pipeline.get_cluster("Pedri")
-print(f"Pedri plays in the '{cluster}' archetype")
-
-# Generate radar chart
-pipeline.radar_chart("Pedri", compare_with=["Frenkie de Jong", "Gavi"])
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
+      // Enable lint rules for React
+      reactX.configs['recommended-typescript'],
+      // Enable lint rules for React DOM
+      reactDom.configs.recommended,
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
 ```
-
-## Project Structure
-
-```
-scoutlab/
-├── scoutlab/
-│   ├── data/          # Data loading and preprocessing
-│   ├── models/        # ML models (similarity, clustering)
-│   ├── viz/           # Visualizations (radar, scatter)
-│   └── pipeline/      # End-to-end scouting pipeline
-├── notebooks/         # Demo notebooks
-└── tests/             # Unit tests
-```
-
-## Data Format
-
-ScoutLab expects a CSV with at least a `player` column and numeric performance metrics:
-
-| player | goals | assists | progressive_passes | dribbles | ... |
-|--------|-------|---------|-------------------|----------|-----|
-| Pedri  | 4     | 8       | 120               | 45       | ... |
-
-Compatible with **StatsBomb**, **FBref**, **Wyscout**, and **InStat** exports.
-
-## Metrics Categories
-
-- **Attacking**: goals, xG, shots, key_passes, assists, xA
-- **Possession**: progressive_passes, carries, dribbles, passes_completed_pct
-- **Defensive**: tackles, interceptions, pressures, duels_won_pct
-- **Physical**: distance_covered, sprint_distance, aerial_duels_won_pct
-
-## License
-
-MIT
