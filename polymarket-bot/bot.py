@@ -16,14 +16,19 @@ from loguru import logger
 
 from config import config
 from client import PolymarketClient
-from markets import scan_markets, market_summary
+from markets import scan_markets
 from strategy import get_strategy, TradeSignal
-from py_clob_client.constants import BUY, SELL
+import database as db
 
 
 # ---------------------------------------------------------------------------
 # Logging setup
 # ---------------------------------------------------------------------------
+
+def _db_sink(message) -> None:
+    record = message.record
+    db.insert_event(record["level"].name, record["message"])
+
 
 logger.remove()
 logger.add(
@@ -37,6 +42,7 @@ logger.add(
     retention="7 days",
     level="DEBUG",
 )
+logger.add(_db_sink, level="INFO")
 
 
 # ---------------------------------------------------------------------------
@@ -55,6 +61,7 @@ class PolymarketBot:
     # ------------------------------------------------------------------
 
     def start(self) -> None:
+        db.init_db()
         logger.info("=" * 60)
         logger.info("  Polymarket Trading Bot starting up")
         logger.info(f"  Strategy  : {config.STRATEGY}")
@@ -65,11 +72,8 @@ class PolymarketBot:
         logger.info("=" * 60)
 
         config.validate()
-
-        # Authenticate
         self.client.authenticate()
 
-        # Register signal handlers for clean shutdown
         signal.signal(signal.SIGINT, self._handle_signal)
         signal.signal(signal.SIGTERM, self._handle_signal)
 
@@ -107,6 +111,9 @@ class PolymarketBot:
         positions = self.client.get_positions()
         logger.info(f"Balance: ${balance:.2f} USDC | Open positions: {len(positions)}")
 
+        # Persist PnL snapshot
+        db.insert_pnl_snapshot(balance=balance, open_positions=len(positions))
+
         if balance < 1.0:
             logger.warning("Balance too low to trade. Skipping tick.")
             return
@@ -133,7 +140,7 @@ class PolymarketBot:
         for signal in signals[:slots]:
             if self._execute(signal):
                 executed += 1
-                balance -= signal.size_usdc  # optimistic balance deduction
+                balance -= signal.size_usdc
 
         if executed:
             logger.info(f"Executed {executed} new order(s) this tick")
@@ -147,11 +154,10 @@ class PolymarketBot:
 
     def _execute(self, signal: TradeSignal) -> bool:
         logger.info(
-            f"Signal: {signal.reason}\n"
-            f"  Market : {signal.market.question[:80]}\n"
-            f"  Token  : {signal.token.outcome} ({signal.token.token_id[:10]}…)\n"
-            f"  Side   : {signal.side}  price={signal.price:.4f}  size=${signal.size_usdc:.2f}\n"
-            f"  Edge   : {signal.edge:.3f}"
+            f"Signal: {signal.reason} | "
+            f"{signal.market.question[:60]} | "
+            f"{signal.side} {signal.token.outcome} @ {signal.price:.4f} "
+            f"size=${signal.size_usdc:.2f}"
         )
 
         result = self.client.place_limit_order(
@@ -167,6 +173,17 @@ class PolymarketBot:
         order_id = result.get("orderID", "")
         if order_id:
             self._open_order_ids.add(order_id)
+
+        # Persist trade
+        db.insert_trade(
+            market=signal.market.question,
+            outcome=signal.token.outcome,
+            side=signal.side,
+            price=signal.price,
+            size_usdc=signal.size_usdc,
+            order_id=order_id,
+            dry_run=config.DRY_RUN,
+        )
         return True
 
     # ------------------------------------------------------------------
@@ -174,11 +191,6 @@ class PolymarketBot:
     # ------------------------------------------------------------------
 
     def _manage_existing_positions(self, positions: list[dict]) -> None:
-        """
-        Placeholder for exit logic:
-        - Take profit when price moves sufficiently in our favour
-        - Stop loss if position is deeply underwater
-        """
         for pos in positions:
             asset = pos.get("asset", "")
             size = float(pos.get("size", 0))
@@ -209,6 +221,7 @@ class PolymarketBot:
 if __name__ == "__main__":
     import os
     os.makedirs("logs", exist_ok=True)
+    os.makedirs("data", exist_ok=True)
 
     bot = PolymarketBot()
     bot.start()
