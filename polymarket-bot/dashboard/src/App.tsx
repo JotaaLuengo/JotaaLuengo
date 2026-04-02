@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from './api'
 import StatCard from './components/StatCard'
@@ -5,8 +6,12 @@ import PnLChart from './components/PnLChart'
 import TradesTable from './components/TradesTable'
 import EventLog from './components/EventLog'
 import WinRateBar from './components/WinRateBar'
+import clsx from 'clsx'
 
-// ---- tiny SVG icons -------------------------------------------------------
+// ---- icons ----------------------------------------------------------------
+const IconDashboard = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+const IconTrades   = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+const IconLog      = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="12" y2="17"/></svg>
 const IconWallet   = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 3H8a2 2 0 0 0-2 2v2h12V5a2 2 0 0 0-2-2z"/><circle cx="16" cy="14" r="1.5" fill="currentColor"/></svg>
 const IconTrend    = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
 const IconActivity = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
@@ -14,138 +19,116 @@ const IconTarget   = () => <svg width="20" height="20" viewBox="0 0 24 24" fill=
 const IconRefresh  = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 4 23 10 17 10"/><path d="M20.5 15a9 9 0 1 1-2-7.9L23 10"/></svg>
 // ---------------------------------------------------------------------------
 
-function useSeed() {
-  const handleSeed = async () => {
+type Tab = 'overview' | 'trades' | 'log'
+
+export default function App() {
+  const [tab, setTab] = useState<Tab>('overview')
+
+  const { data: summary, isLoading } = useQuery({ queryKey: ['summary'], queryFn: api.summary })
+  const { data: pnl     = []       } = useQuery({ queryKey: ['pnl'],     queryFn: api.pnl     })
+  const { data: trades  = []       } = useQuery({ queryKey: ['trades'],  queryFn: api.trades  })
+  const { data: events  = []       } = useQuery({ queryKey: ['events'],  queryFn: api.events  })
+
+  const pnlPos = (summary?.total_pnl ?? 0) >= 0
+
+  async function seed() {
     await api.seed()
     window.location.reload()
   }
-  return handleSeed
-}
-
-export default function App() {
-  const { data: summary, isLoading: loadSum } = useQuery({ queryKey: ['summary'], queryFn: api.summary })
-  const { data: pnl    = []                  } = useQuery({ queryKey: ['pnl'],     queryFn: api.pnl     })
-  const { data: trades = []                  } = useQuery({ queryKey: ['trades'],  queryFn: api.trades  })
-  const { data: events = []                  } = useQuery({ queryKey: ['events'],  queryFn: api.events  })
-
-  const seed = useSeed()
-  const pnlColor = (summary?.total_pnl ?? 0) >= 0 ? 'text-green' : 'text-red'
 
   return (
-    <div className="min-h-screen bg-bg text-slate-200 p-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <header className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="font-display text-4xl tracking-widest text-white">POLYMARKET BOT</h1>
-          <p className="text-muted text-sm mt-0.5">Live trading dashboard · auto-refresh every 15s</p>
-        </div>
-        <div className="flex items-center gap-3">
+    <div className="min-h-screen bg-bg flex flex-col">
+      {/* Top header */}
+      <header className="sticky top-0 z-10 bg-bg/95 backdrop-blur border-b border-border px-4 py-3 flex items-center justify-between">
+        <h1 className="font-display text-2xl tracking-widest text-white">POLYMARKET BOT</h1>
+        <div className="flex items-center gap-2">
           <button
             onClick={seed}
-            className="flex items-center gap-1.5 text-xs text-muted border border-border px-3 py-1.5 rounded-lg hover:border-muted transition-colors"
+            className="flex items-center gap-1 text-xs text-muted border border-border px-2.5 py-1.5 rounded-lg active:scale-95 transition-transform"
           >
-            <IconRefresh /> Seed demo data
+            <IconRefresh /> Demo
           </button>
-          <span className="flex items-center gap-2 text-xs bg-green/10 text-green border border-green/30 px-3 py-1.5 rounded-full">
+          <span className="flex items-center gap-1.5 text-xs bg-green/10 text-green border border-green/30 px-2.5 py-1.5 rounded-full">
             <span className="w-1.5 h-1.5 rounded-full bg-green animate-pulse" />
             Live
           </span>
         </div>
       </header>
 
-      {/* Stat cards */}
-      {loadSum ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-32 rounded-xl bg-surface animate-pulse" />
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <StatCard
-            label="Balance"
-            value={`$${(summary?.balance ?? 0).toFixed(2)}`}
-            sub="USDC available"
-            accent="green"
-            icon={<IconWallet />}
-          />
-          <StatCard
-            label="Total PnL"
-            value={`${(summary?.total_pnl ?? 0) >= 0 ? '+' : ''}$${(summary?.total_pnl ?? 0).toFixed(2)}`}
-            sub="vs. initial balance"
-            accent={(summary?.total_pnl ?? 0) >= 0 ? 'green' : 'red'}
-            icon={<IconTrend />}
-          />
-          <StatCard
-            label="Open Positions"
-            value={String(summary?.open_trades ?? 0)}
-            sub={`of ${summary?.total_trades ?? 0} total trades`}
-            accent="blue"
-            icon={<IconActivity />}
-          />
-          <StatCard
-            label="Win Rate"
-            value={`${(summary?.win_rate ?? 0).toFixed(1)}%`}
-            sub="closed trades"
-            accent="yellow"
-            icon={<IconTarget />}
-          />
-        </div>
-      )}
+      {/* Scrollable content */}
+      <main className="flex-1 overflow-y-auto pb-20 px-4 pt-4 space-y-4">
 
-      {/* Charts row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        {/* PnL chart — 2/3 width */}
-        <div className="md:col-span-2 bg-surface border border-border rounded-xl p-5">
-          <h2 className="text-sm font-medium text-muted uppercase tracking-widest mb-4">
-            Balance over time
-          </h2>
-          <PnLChart data={pnl} />
-        </div>
-
-        {/* Win rate panel — 1/3 width */}
-        <div className="bg-surface border border-border rounded-xl p-5 flex flex-col gap-6">
-          <h2 className="text-sm font-medium text-muted uppercase tracking-widest">
-            Performance
-          </h2>
-          <WinRateBar
-            winRate={summary?.win_rate ?? 0}
-            total={(summary?.total_trades ?? 0) - (summary?.open_trades ?? 0)}
-          />
-          <div className="border-t border-border pt-4 space-y-3">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted">Open trades</span>
-              <span className="text-blue font-medium">{summary?.open_trades ?? 0}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted">Total trades</span>
-              <span className="font-medium">{summary?.total_trades ?? 0}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted">Total PnL</span>
-              <span className={`font-medium ${pnlColor}`}>
-                {(summary?.total_pnl ?? 0) >= 0 ? '+' : ''}${(summary?.total_pnl ?? 0).toFixed(2)}
-              </span>
-            </div>
+        {/* Stat cards — 2×2 on mobile, 4×1 on md+ */}
+        {isLoading ? (
+          <div className="grid grid-cols-2 gap-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-28 rounded-xl bg-surface animate-pulse" />
+            ))}
           </div>
-        </div>
-      </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            <StatCard label="Balance"   value={`$${(summary?.balance ?? 0).toFixed(2)}`}   sub="USDC" accent="green"  icon={<IconWallet />} />
+            <StatCard label="PnL"       value={`${pnlPos ? '+' : ''}$${(summary?.total_pnl ?? 0).toFixed(2)}`} sub="total" accent={pnlPos ? 'green' : 'red'} icon={<IconTrend />} />
+            <StatCard label="Posiciones" value={String(summary?.open_trades ?? 0)}          sub={`de ${summary?.total_trades ?? 0}`} accent="blue" icon={<IconActivity />} />
+            <StatCard label="Win Rate"  value={`${(summary?.win_rate ?? 0).toFixed(1)}%`}  sub="cerradas" accent="yellow" icon={<IconTarget />} />
+          </div>
+        )}
 
-      {/* Trades table */}
-      <div className="bg-surface border border-border rounded-xl p-5 mb-6">
-        <h2 className="text-sm font-medium text-muted uppercase tracking-widest mb-4">
-          Trade History
-        </h2>
-        <TradesTable trades={trades} />
-      </div>
+        {/* Tab content */}
+        {tab === 'overview' && (
+          <>
+            {/* PnL Chart */}
+            <div className="bg-surface border border-border rounded-xl p-4">
+              <p className="text-xs text-muted uppercase tracking-widest mb-3">Balance en el tiempo</p>
+              <PnLChart data={pnl} />
+            </div>
 
-      {/* Event log */}
-      <div className="bg-surface border border-border rounded-xl p-5">
-        <h2 className="text-sm font-medium text-muted uppercase tracking-widest mb-4">
-          Bot Event Log
-        </h2>
-        <EventLog events={events} />
-      </div>
+            {/* Win rate */}
+            <div className="bg-surface border border-border rounded-xl p-4">
+              <p className="text-xs text-muted uppercase tracking-widest mb-4">Rendimiento</p>
+              <WinRateBar
+                winRate={summary?.win_rate ?? 0}
+                total={(summary?.total_trades ?? 0) - (summary?.open_trades ?? 0)}
+              />
+            </div>
+          </>
+        )}
+
+        {tab === 'trades' && (
+          <div className="bg-surface border border-border rounded-xl p-4">
+            <p className="text-xs text-muted uppercase tracking-widest mb-4">Historial de trades</p>
+            <TradesTable trades={trades} />
+          </div>
+        )}
+
+        {tab === 'log' && (
+          <div className="bg-surface border border-border rounded-xl p-4">
+            <p className="text-xs text-muted uppercase tracking-widest mb-4">Log del bot</p>
+            <EventLog events={events} />
+          </div>
+        )}
+      </main>
+
+      {/* Bottom navigation — fixed, full width */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-surface border-t border-border flex">
+        {([
+          { id: 'overview', label: 'Overview', icon: <IconDashboard /> },
+          { id: 'trades',   label: 'Trades',   icon: <IconTrades />   },
+          { id: 'log',      label: 'Log',      icon: <IconLog />      },
+        ] as { id: Tab; label: string; icon: React.ReactNode }[]).map(item => (
+          <button
+            key={item.id}
+            onClick={() => setTab(item.id)}
+            className={clsx(
+              'flex-1 flex flex-col items-center justify-center gap-1 py-3 text-xs transition-colors',
+              tab === item.id ? 'text-green' : 'text-muted'
+            )}
+          >
+            {item.icon}
+            {item.label}
+          </button>
+        ))}
+      </nav>
     </div>
   )
 }
